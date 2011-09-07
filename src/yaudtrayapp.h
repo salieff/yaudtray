@@ -1,5 +1,5 @@
-#ifndef YAUDTRAYAPP_H
-#define YAUDTRAYAPP_H
+#ifndef _YAUD_TRAY_APP_H_
+#define _YAUD_TRAY_APP_H_
 
 #include <QApplication>
 #include <QDBusConnection>
@@ -23,4 +23,4 @@ private:
     bool getDevicesList();
 };
 
-#endif // YAUDTRAYAPP_H
+#endif /* _YAUD_TRAY_APP_H_ */

@@ -10,4 +10,5 @@ SOURCES += \
     src/yaudtrayapp.cpp
 
 HEADERS  += \
-    src/yaudtrayapp.h
+    src/yaudtrayapp.h \
+    src/devinfo.h
