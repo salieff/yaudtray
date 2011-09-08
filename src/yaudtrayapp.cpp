@@ -3,11 +3,10 @@
 
 #include <QDBusMessage>
 #include <QDBusArgument>
-#include <QDBusInterface>
-#include <QStringList>
 #include <QDebug>
 
 #include "yaudtrayapp.h"
+#include "devinfo.h"
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 YaudTrayApp::YaudTrayApp(int &argc, char **argv)
@@ -116,71 +115,23 @@ bool YaudTrayApp::getDevicesList()
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::onDeviceAdded(QDBusObjectPath device)
 {
-    QDBusInterface devIface("org.freedesktop.UDisks",
-                            device.path(),
-                            "org.freedesktop.UDisks.Device",
-                            QDBusConnection::systemBus());
-
-    QString devFile = devIface.property("DeviceFile").toString();
-    bool devIsSystemInternal = devIface.property("DeviceIsSystemInternal").toBool();
-    bool devRemovable = devIface.property("DeviceIsRemovable").toBool();
-    bool devMediaAvailable = devIface.property("DeviceIsMediaAvailable").toBool();
-    bool devIsDrive = devIface.property("DeviceIsDrive").toBool();
-    bool devIsOpticalDisk = devIface.property("DeviceIsOpticalDisc").toBool();
-    bool devIsMounted = devIface.property("DeviceIsMounted").toBool();
-    qulonglong devSize = devIface.property("DeviceSize").toULongLong();
-    QString devIdUsage = devIface.property("IdUsage").toString();
-    QString devIdType = devIface.property("IdType").toString();
-    QString devIdUuid = devIface.property("IdUuid").toString();
-    QString devIdLabel = devIface.property("IdLabel").toString();
-    bool devIsMediaEjectable = false;
-    bool devCanDetach = false;
-
-    if (devIsDrive)
-    {
-        devIsMediaEjectable = devIface.property("DriveIsMediaEjectable").toBool();
-        devCanDetach = devIface.property("DriveCanDetach").toBool();
-    }
-
-    QString devMountPath="";
-    if (devIsMounted)
-    {
-        QStringList listMountPaths = devIface.property("DeviceMountPaths").toStringList();
-        if (!listMountPaths.empty())
-            devMountPath = listMountPaths.at(0);
-    }
-
-#define PRINT_STRING(arg) printf("    "#arg": %s\n", qPrintable(arg));
-#define PRINT_BOOL(arg) printf("    "#arg": %s\n", arg ? "TRUE" : "FALSE");
-#define PRINT_ULL(arg) printf("    "#arg": %llu\n", arg);
     printf("[YaudTrayApp::onDeviceAdded]\n");
-    PRINT_STRING(device.path())
-    PRINT_STRING(devFile)
-    PRINT_STRING(devMountPath)
-    PRINT_BOOL(devIsSystemInternal)
-    PRINT_BOOL(devRemovable)
-    PRINT_BOOL(devMediaAvailable)
-    PRINT_BOOL(devIsDrive)
-    PRINT_BOOL(devIsOpticalDisk)
-    PRINT_BOOL(devIsMounted)
-    PRINT_ULL(devSize)
-    PRINT_STRING(devIdUsage)
-    PRINT_STRING(devIdType)
-    PRINT_STRING(devIdUuid)
-    PRINT_STRING(devIdLabel)
-    PRINT_BOOL(devIsMediaEjectable)
-    PRINT_BOOL(devCanDetach)
-#undef PRINT_STRING
-#undef PRINT_BOOL
-#undef PRINT_ULL
+    YaudDeviceInfo yaudDI;
+    if (!yaudDI.convert(device)) printf("    SKIPPED\n");
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::onDeviceRemoved(QDBusObjectPath device)
 {
+    printf("[YaudTrayApp::onDeviceRemoved]\n");
+    YaudDeviceInfo yaudDI;
+    if (!yaudDI.convert(device)) printf("    SKIPPED\n");
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::onDeviceChanged(QDBusObjectPath device)
 {
+    printf("[YaudTrayApp::onDeviceChanged]\n");
+    YaudDeviceInfo yaudDI;
+    if (!yaudDI.convert(device)) printf("    SKIPPED\n");
 }

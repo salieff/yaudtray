@@ -7,7 +7,8 @@ CONFIG    += qdbus
 
 SOURCES += \
     src/main.cpp \
-    src/yaudtrayapp.cpp
+    src/yaudtrayapp.cpp \
+    src/devinfo.cpp
 
 HEADERS  += \
     src/yaudtrayapp.h \

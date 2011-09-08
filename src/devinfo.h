@@ -2,20 +2,25 @@
 #define _YAUD_DEV_INFO_H_
 
 #include <QString>
-
+#include <QDBusObjectPath>
+ 
 struct YaudDeviceInfo {
     enum DriveType {
-        UNKNOWN,
-        FLASH,
-        CDROM
+        DRT_UNKNOWN,
+        DRT_FLASH,
+        DRT_CDROM
     };
 
     enum FSType {
-        UNKNOWN,
-        UNIX,
-        WINDOWS
+        FST_UNKNOWN,
+        FST_UNIX,
+        FST_CDROM,
+        FST_WINDOWS
     };
-
+	
+	YaudDeviceInfo();
+	bool convert(QDBusObjectPath device);
+	
     QString udisksPath;
     QString displayName;
 
