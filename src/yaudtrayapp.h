@@ -4,6 +4,12 @@
 #include <QApplication>
 #include <QDBusConnection>
 #include <QDBusObjectPath>
+#include <QSystemTrayIcon>
+#include <QMenu>
+
+#include <map>
+
+#include "devinfo.h"
 
 class YaudTrayApp : public QApplication
 {
@@ -17,10 +23,21 @@ private slots:
     void onDeviceAdded(QDBusObjectPath device);
     void onDeviceRemoved(QDBusObjectPath device);
     void onDeviceChanged(QDBusObjectPath device);
+    void onAbout();
 
 private:
     bool connectToUdisks();
     bool getDevicesList();
+
+    void addDevice(QDBusObjectPath device, bool onStart=false);
+
+    std::map<QString, YaudDeviceInfo> devices;
+
+    QSystemTrayIcon *trayIcon;
+    QMenu *trayMenu;
+
+    QAction *aboutAction;
+    QAction *exitAction;
 };
 
 #endif /* _YAUD_TRAY_APP_H_ */

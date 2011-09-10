@@ -1,9 +1,9 @@
-QT        += core
+QT        += core gui
 
 TARGET     = yaudtray
 TEMPLATE   = app
 
-CONFIG    += qdbus
+CONFIG    += debug qdbus
 
 SOURCES += \
     src/main.cpp \

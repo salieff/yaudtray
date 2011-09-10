@@ -3,7 +3,7 @@
 
 #include <QString>
 #include <QDBusObjectPath>
- 
+
 struct YaudDeviceInfo {
     enum DriveType {
         DRT_UNKNOWN,
@@ -17,13 +17,25 @@ struct YaudDeviceInfo {
         FST_CDROM,
         FST_WINDOWS
     };
-	
-	YaudDeviceInfo();
-	bool convert(QDBusObjectPath device);
-	
+
+    YaudDeviceInfo();
+
+    void convert(QDBusObjectPath device);
+    void print();
+
+    bool mount();
+    bool unmount();
+    bool eject();
+
+    bool operator==(const YaudDeviceInfo &yaDI);
+
+    QString lastError;
+    QString lastErrDescription;
+
     QString udisksPath;
     QString displayName;
 
+    bool isExternalMountPoint;
     bool isMounted;
     bool isEjectable;
 
