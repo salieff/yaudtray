@@ -24,8 +24,11 @@ private slots:
     void onDeviceRemoved(QDBusObjectPath device);
     void onDeviceChanged(QDBusObjectPath device);
     void onAbout();
+    void showTrayMenu();
+    void processingRequested(QString udisksPath);
 
 private:
+    void createTrayIcon();
     bool connectToUdisks();
     bool getDevicesList();
 

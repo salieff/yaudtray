@@ -3,6 +3,9 @@
 
 #include <QString>
 #include <QDBusObjectPath>
+#include <QWidgetAction>
+
+class DevInfoWidget;
 
 struct YaudDeviceInfo {
     enum DriveType {
@@ -15,12 +18,14 @@ struct YaudDeviceInfo {
         FST_UNKNOWN,
         FST_UNIX,
         FST_CDROM,
-        FST_WINDOWS
+        FST_WINDOWS,
+        FST_APPLE
     };
 
     YaudDeviceInfo();
 
     void convert(QDBusObjectPath device);
+    void refreshWidget();
     void print();
 
     bool mount();
@@ -45,6 +50,9 @@ struct YaudDeviceInfo {
 
     DriveType driveType;
     FSType fsType;
+
+    QWidgetAction *menuAction;
+    DevInfoWidget *menuWidget;
 };
 
 #endif /* _YAUD_DEV_INFO_H_ */

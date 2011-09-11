@@ -1,6 +1,8 @@
-#include "devinfo.h"
 #include <QDBusInterface>
 #include <QStringList>
+
+#include "devinfo.h"
+#include "devinfowidget.h"
 
 #include <stdio.h>
 
@@ -11,7 +13,9 @@ YaudDeviceInfo::YaudDeviceInfo()
       isEjectable(false),
       size(0),
       driveType(DRT_UNKNOWN),
-      fsType(FST_UNKNOWN)
+      fsType(FST_UNKNOWN),
+      menuAction(NULL),
+      menuWidget(NULL)
 {
 }
 
@@ -60,10 +64,21 @@ void YaudDeviceInfo::convert(QDBusObjectPath device)
         fsType = FST_WINDOWS;
     else if (fsName == "iso9660")
         fsType = FST_CDROM;
+    else if (fsName == "hfs" || fsName == "hfsplus")
+        fsType = FST_APPLE;
     else
         fsType = FST_UNIX;
 
 
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudDeviceInfo::refreshWidget()
+{
+    if (menuWidget == NULL)
+        return;
+
+    menuWidget->convertFrom(this);
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -112,6 +127,10 @@ void YaudDeviceInfo::print()
 
     case FST_WINDOWS :
         printf("    fsType: FST_WINDOWS\n");
+        break;
+
+    case FST_APPLE :
+        printf("    fsType: FST_APPLE\n");
         break;
     }
 #undef PRINT_STRING

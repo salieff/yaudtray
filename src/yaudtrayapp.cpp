@@ -1,12 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <vector>
+#include <algorithm>
+
 #include <QDBusMessage>
 #include <QDBusInterface>
 #include <QDBusArgument>
+#include <QWidgetAction>
+#include <QMessageBox>
 #include <QDebug>
 
 #include "yaudtrayapp.h"
+#include "devinfowidget.h"
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 YaudTrayApp::YaudTrayApp(int &argc, char **argv)
@@ -16,6 +22,34 @@ YaudTrayApp::YaudTrayApp(int &argc, char **argv)
       aboutAction(NULL),
       exitAction(NULL)
 {
+    createTrayIcon();
+
+    if (!connectToUdisks())
+        exit(1);
+
+    if (!getDevicesList())
+        exit(1);
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+YaudTrayApp::~YaudTrayApp()
+{
+    delete aboutAction;
+    aboutAction = NULL;
+
+    delete exitAction;
+    exitAction = NULL;
+
+    delete trayMenu;
+    trayMenu = NULL;
+
+    delete trayIcon;
+    trayIcon = NULL;
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudTrayApp::createTrayIcon()
+{
     // QIcon::setThemeName("Faenza-Dark");
 
     printf("themeName: %s\n", qPrintable(QIcon::themeName()));
@@ -23,37 +57,20 @@ YaudTrayApp::YaudTrayApp(int &argc, char **argv)
     for (int i=0; i<tsPaths.size(); ++i)
         printf("themeSearchPaths[%d]: %s\n", i, qPrintable(tsPaths.at(i)));
 
+    setWindowIcon(QIcon::fromTheme("media-eject"));
+    setQuitOnLastWindowClosed(false);
+
     trayMenu = new QMenu(tr("Yaud tray"));
     trayMenu->addSeparator();
     aboutAction = trayMenu->addAction(QIcon::fromTheme("help-about"), tr("&About"), this, SLOT(onAbout()));
     exitAction = trayMenu->addAction(QIcon::fromTheme("application-exit"), tr("&Quit"), this, SLOT(quit()));
 
     trayIcon = new QSystemTrayIcon(QIcon::fromTheme("media-eject"));
-    trayIcon->setContextMenu(trayMenu);
+    // trayIcon->setContextMenu(trayMenu);
 
-    if (!connectToUdisks())
-        exit(1);
-
-    if (!getDevicesList())
-        exit(1);
+    connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(showTrayMenu()));
 
     trayIcon->show();
-}
-
-// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
-YaudTrayApp::~YaudTrayApp()
-{
-    delete trayIcon;
-    trayIcon = NULL;
-
-    delete trayMenu;
-    trayMenu = NULL;
-
-//    delete aboutAction;
-//    aboutAction = NULL;
-
-//    delete exitAction;
-//    exitAction = NULL;
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -103,6 +120,12 @@ bool YaudTrayApp::connectToUdisks()
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+static bool sortByUdisksPath(const QDBusObjectPath &p1, const QDBusObjectPath &p2)
+{
+    return p1.path() < p2.path();
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 bool YaudTrayApp::getDevicesList()
 {
     QDBusInterface devEnum("org.freedesktop.UDisks",
@@ -133,13 +156,20 @@ bool YaudTrayApp::getDevicesList()
 
     // qDebug() << enumRes;
 
+    std::vector<QDBusObjectPath> sortVector;
+
     enumArg.beginArray();
     while (!enumArg.atEnd())
     {
         QDBusObjectPath devObj = qdbus_cast<QDBusObjectPath>(enumArg);
-        addDevice(devObj, true);
+        sortVector.push_back(devObj);
     }
     enumArg.endArray();
+
+    std::sort(sortVector.begin(), sortVector.end(), sortByUdisksPath);
+
+    for (size_t i=0; i<sortVector.size(); ++i)
+        addDevice(sortVector[i], true);
 
     return true;
 }
@@ -155,17 +185,20 @@ void YaudTrayApp::addDevice(QDBusObjectPath device, bool onStart)
     printf("[YaudTrayApp::onDeviceAdded]\n");
     yaudDI.print();
 
+    DevInfoWidget *widg = new DevInfoWidget(&yaudDI, trayMenu);
+    connect(widg, SIGNAL(requestProcessing(QString)), this, SLOT(processingRequested(QString)));
+
+    QWidgetAction *widgAct = new QWidgetAction(trayMenu);
+    widgAct->setDefaultWidget(widg);
+
+    yaudDI.menuAction = widgAct;
+    yaudDI.menuWidget = widg;
     devices[yaudDI.udisksPath] = yaudDI;
 
-    trayMenu->insertAction(trayMenu->actions().at(0), new QAction(QIcon::fromTheme("drive-removable-media-usb"), yaudDI.displayName, this));
-    trayMenu->adjustSize();
+    trayMenu->insertAction(trayMenu->actions().at(0), widgAct);
 
     if (!onStart)
-    {
-        QPoint p(trayIcon->geometry().topLeft().x() - (trayMenu->sizeHint().width()/2), trayIcon->geometry().topLeft().y() - trayMenu->height());
-        //QPoint p(trayIcon->geometry().topLeft().x() - (trayMenu->sizeHint().width()/2), trayIcon->geometry().topLeft().y());
-        trayMenu->popup(p);
-    }
+        showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -177,13 +210,18 @@ void YaudTrayApp::onDeviceAdded(QDBusObjectPath device)
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::onDeviceRemoved(QDBusObjectPath device)
 {
-    YaudDeviceInfo yaudDI;
-    yaudDI.convert(device);
+    std::map<QString, YaudDeviceInfo>::iterator it = devices.find(device.path());
+    if (it == devices.end())
+        return;
 
-    printf("[YaudTrayApp::onDeviceRemoved]\n");
-    yaudDI.print();
+    printf("[YaudTrayApp::onDeviceRemoved] : %s\n", qPrintable(device.path()));
 
-    devices.erase(yaudDI.udisksPath);
+    trayMenu->removeAction(it->second.menuAction);
+    delete it->second.menuAction;
+    devices.erase(it);
+
+    if (!trayMenu->isHidden())
+        showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -211,10 +249,45 @@ void YaudTrayApp::onDeviceChanged(QDBusObjectPath device)
     printf("[YaudTrayApp::onDeviceChanged]\n");
     yaudDI.print();
 
-    devices[yaudDI.udisksPath] = yaudDI;
+    it->second.convert(device);
+    it->second.refreshWidget();
+
+    if (!trayMenu->isHidden())
+        showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::onAbout()
 {
+    QMessageBox::about(NULL,
+                       tr("YAUDTray"),
+                       tr("<H3 ALIGN=CENTER>Yet Another Udisks Tray Mounter</H3>\n"
+                          "<A HREF=\"https://github.com/salieff/yaudtray\" ALIGN=CENTER>https://github.com/salieff/yaudtray</A>"));
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudTrayApp::showTrayMenu()
+{
+    trayMenu->adjustSize();
+    QPoint p(trayIcon->geometry().topLeft().x() - (trayMenu->sizeHint().width()/2), trayIcon->geometry().topLeft().y() - trayMenu->sizeHint().height());
+    trayMenu->popup(p);
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudTrayApp::processingRequested(QString udisksPath)
+{
+    std::map<QString, YaudDeviceInfo>::iterator it = devices.find(udisksPath);
+    if (it == devices.end())
+        return;
+
+    if (it->second.isMounted)
+    {
+        it->second.unmount();
+        if (it->second.isEjectable)
+            it->second.eject();
+    }
+    else
+    {
+        it->second.mount();
+    }
 }
