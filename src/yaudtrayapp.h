@@ -24,7 +24,7 @@ private slots:
     void onDeviceRemoved(QDBusObjectPath device);
     void onDeviceChanged(QDBusObjectPath device);
     void onAbout();
-    void showTrayMenu();
+    void showTrayMenu(QSystemTrayIcon::ActivationReason reason);
     void processingRequested(QString udisksPath);
 
 private:
@@ -37,10 +37,12 @@ private:
     std::map<QString, YaudDeviceInfo> devices;
 
     QSystemTrayIcon *trayIcon;
-    QMenu *trayMenu;
+    QMenu *mountMenu;
+    QMenu *aboutMenu;
 
     QAction *aboutAction;
     QAction *exitAction;
+    QAction *noMediaAction;
 };
 
 #endif /* _YAUD_TRAY_APP_H_ */

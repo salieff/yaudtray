@@ -13,7 +13,6 @@ YaudDeviceInfo::YaudDeviceInfo()
       isEjectable(false),
       size(0),
       driveType(DRT_UNKNOWN),
-      fsType(FST_UNKNOWN),
       menuAction(NULL),
       menuWidget(NULL)
 {
@@ -59,17 +58,6 @@ void YaudDeviceInfo::convert(QDBusObjectPath device)
         driveType = DRT_CDROM;
     else
         driveType = DRT_FLASH;
-
-    if (fsName == "vfat" || fsName == "ntfs")
-        fsType = FST_WINDOWS;
-    else if (fsName == "iso9660")
-        fsType = FST_CDROM;
-    else if (fsName == "hfs" || fsName == "hfsplus")
-        fsType = FST_APPLE;
-    else
-        fsType = FST_UNIX;
-
-
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -110,29 +98,6 @@ void YaudDeviceInfo::print()
         printf("    driveType: DRT_CDROM\n");
         break;
     }
-
-    switch (fsType)
-    {
-    case FST_UNKNOWN :
-        printf("    fsType: FST_UNKNOWN\n");
-        break;
-
-    case FST_UNIX :
-        printf("    fsType: FST_UNIX\n");
-        break;
-
-    case FST_CDROM :
-        printf("    fsType: FST_CDROM\n");
-        break;
-
-    case FST_WINDOWS :
-        printf("    fsType: FST_WINDOWS\n");
-        break;
-
-    case FST_APPLE :
-        printf("    fsType: FST_APPLE\n");
-        break;
-    }
 #undef PRINT_STRING
 #undef PRINT_BOOL
 #undef PRINT_ULL
@@ -156,6 +121,8 @@ bool YaudDeviceInfo::mount()
         return false;
     }
 
+    lastError.clear();
+    lastErrDescription.clear();
     return true;
 }
 
@@ -177,6 +144,8 @@ bool YaudDeviceInfo::unmount()
         return false;
     }
 
+    lastError.clear();
+    lastErrDescription.clear();
     return true;
 }
 
@@ -198,6 +167,8 @@ bool YaudDeviceInfo::eject()
         return false;
     }
 
+    lastError.clear();
+    lastErrDescription.clear();
     return true;
 }
 
@@ -215,7 +186,6 @@ bool YaudDeviceInfo::operator==(const YaudDeviceInfo &yaDI)
     if (ret) ret = (fsName == yaDI.fsName);
     if (ret) ret = (mountPath == yaDI.mountPath);
     if (ret) ret = (driveType == yaDI.driveType);
-    if (ret) ret = (fsType == yaDI.fsType);
 
     return ret;
 }

@@ -14,14 +14,6 @@ struct YaudDeviceInfo {
         DRT_CDROM
     };
 
-    enum FSType {
-        FST_UNKNOWN,
-        FST_UNIX,
-        FST_CDROM,
-        FST_WINDOWS,
-        FST_APPLE
-    };
-
     YaudDeviceInfo();
 
     void convert(QDBusObjectPath device);
@@ -49,7 +41,6 @@ struct YaudDeviceInfo {
     QString mountPath;
 
     DriveType driveType;
-    FSType fsType;
 
     QWidgetAction *menuAction;
     DevInfoWidget *menuWidget;

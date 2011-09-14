@@ -1,7 +1,16 @@
 <RCC>
     <qresource prefix="/">
-        <file>icons/linux.png</file>
         <file>icons/apple.png</file>
+        <file>icons/application-exit.png</file>
+        <file>icons/dialog-warning.png</file>
+        <file>icons/drive-cdrom.png</file>
+        <file>icons/drive-removable-media-usb.png</file>
+        <file>icons/help-about.png</file>
+        <file>icons/linux.png</file>
+        <file>icons/media-cdrom.png</file>
+        <file>icons/media-eject.png</file>
+        <file>icons/media-playback-stop.png</file>
+        <file>icons/system-run.png</file>
         <file>icons/windows.png</file>
     </qresource>
 </RCC>
