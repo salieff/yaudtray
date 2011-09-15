@@ -19,6 +19,7 @@ public:
 
 signals:
     void requestProcessing(QString udisksPath);
+    void requestCloseError(QString udisksPath);
 
 private:
     QString udisksPath;
@@ -28,6 +29,7 @@ private:
 
 private slots:
     void ejectClicked();
+    void errCloseClicked();
     void mountLinkActivated(QString strLink);
 };
 

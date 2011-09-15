@@ -12,5 +12,6 @@
         <file>icons/media-playback-stop.png</file>
         <file>icons/system-run.png</file>
         <file>icons/windows.png</file>
+        <file>icons/window-close.png</file>
     </qresource>
 </RCC>

@@ -188,6 +188,7 @@ void YaudTrayApp::addDevice(QDBusObjectPath device, bool onStart)
 
     DevInfoWidget *widg = new DevInfoWidget(&yaudDI, mountMenu);
     connect(widg, SIGNAL(requestProcessing(QString)), this, SLOT(processingRequested(QString)));
+    connect(widg, SIGNAL(requestCloseError(QString)), this, SLOT(errCloseRequested(QString)));
 
     QWidgetAction *widgAct = new QWidgetAction(mountMenu);
     widgAct->setDefaultWidget(widg);
@@ -328,4 +329,19 @@ void YaudTrayApp::processingRequested(QString udisksPath)
         if (!mountMenu->isHidden())
             showTrayMenu(QSystemTrayIcon::Trigger);
     }
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudTrayApp::errCloseRequested(QString udisksPath)
+{
+    std::map<QString, YaudDeviceInfo>::iterator it = devices.find(udisksPath);
+    if (it == devices.end())
+        return;
+
+    it->second.lastError.clear();
+    it->second.lastErrDescription.clear();
+
+    it->second.refreshWidget();
+    if (!mountMenu->isHidden())
+        showTrayMenu(QSystemTrayIcon::Trigger);
 }

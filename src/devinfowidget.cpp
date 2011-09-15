@@ -15,11 +15,15 @@ DevInfoWidget::DevInfoWidget(YaudDeviceInfo *yaudDI, QWidget *parent)
     setupUi(this);
     convertFrom(yaudDI);
 
+    ejectButton->setText("");
     connect(ejectButton, SIGNAL(clicked()), this, SLOT(ejectClicked()));
+    connect(errCloseButton, SIGNAL(clicked()), this, SLOT(errCloseClicked()));
 
     xdgOpen = new QProcess(this);
 
     errIconlabel->setPixmap(yaudIcon("dialog-warning").pixmap(22, 22));
+    errCloseButton->setIcon(yaudIcon("window-close"));
+    errCloseButton->setText("");
     errGroupBox->hide();
 }
 
@@ -31,7 +35,6 @@ DevInfoWidget::~DevInfoWidget()
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void DevInfoWidget::convertFrom(YaudDeviceInfo *yaudDI)
 {
-    ejectButton->setText("");
 
     QString displayName = yaudDI->displayName;
 
@@ -116,6 +119,12 @@ QString DevInfoWidget::printSize(qulonglong size)
 void DevInfoWidget::ejectClicked()
 {
     emit requestProcessing(udisksPath);
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void DevInfoWidget::errCloseClicked()
+{
+    emit requestCloseError(udisksPath);
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------

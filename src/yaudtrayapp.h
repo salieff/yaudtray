@@ -26,6 +26,7 @@ private slots:
     void onAbout();
     void showTrayMenu(QSystemTrayIcon::ActivationReason reason);
     void processingRequested(QString udisksPath);
+    void errCloseRequested(QString udisksPath);
 
 private:
     void createTrayIcon();
