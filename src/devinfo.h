@@ -33,8 +33,6 @@ public :
     bool unmount();
     bool eject();
 
-    bool operator==(const YaudDeviceInfo &yaDI);
-
     QString lastError;
     QString lastErrDescription;
 
@@ -51,7 +49,6 @@ public :
 
     DriveType driveType;
 
-    QWidgetAction *menuAction;
     DevInfoWidget *menuWidget;
 
 signals :

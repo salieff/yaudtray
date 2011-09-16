@@ -26,7 +26,6 @@ void YaudDeviceInfo::reset()
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 YaudDeviceInfo::YaudDeviceInfo()
     : QObject(),
-      menuAction(NULL),
       menuWidget(NULL)
 {
     reset();
@@ -35,7 +34,6 @@ YaudDeviceInfo::YaudDeviceInfo()
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 YaudDeviceInfo::YaudDeviceInfo(QDBusObjectPath device)
     : QObject(),
-      menuAction(NULL),
       menuWidget(NULL)
 {
     convert(device);
@@ -173,7 +171,6 @@ bool YaudDeviceInfo::eject()
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudDeviceInfo::onCommandDone(QDBusMessage msg)
 {
-    printf("[YaudDeviceInfo::onCommandDone]\n");
     lastError.clear();
     lastErrDescription.clear();
     refreshWidget();
@@ -183,28 +180,9 @@ void YaudDeviceInfo::onCommandDone(QDBusMessage msg)
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudDeviceInfo::onCommandError(QDBusError err, QDBusMessage msg)
 {
-    printf("[YaudDeviceInfo::onCommandError]\n");
     lastError = err.name();
     lastErrDescription = err.message();
     fprintf(stderr, "[ERROR] %s : %s [%d]\n", qPrintable(lastError), qPrintable(lastErrDescription), err.type());
     refreshWidget();
     emit commandError(udisksPath);
-}
-
-// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
-bool YaudDeviceInfo::operator==(const YaudDeviceInfo &yaDI)
-{
-    bool ret = true;
-
-    if (ret) ret = (udisksPath == yaDI.udisksPath);
-    if (ret) ret = (displayName == yaDI.displayName);
-    if (ret) ret = (isExternalMountPoint == yaDI.isExternalMountPoint);
-    if (ret) ret = (isMounted == yaDI.isMounted);
-    if (ret) ret = (isEjectable == yaDI.isEjectable);
-    if (ret) ret = (size == yaDI.size);
-    if (ret) ret = (fsName == yaDI.fsName);
-    if (ret) ret = (mountPath == yaDI.mountPath);
-    if (ret) ret = (driveType == yaDI.driveType);
-
-    return ret;
 }

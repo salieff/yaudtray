@@ -9,6 +9,7 @@
 #include <QDBusArgument>
 #include <QWidgetAction>
 #include <QMessageBox>
+#include <QSizePolicy>
 #include <QDebug>
 
 #include "yaudtrayapp.h"
@@ -16,10 +17,47 @@
 #include "helpers.h"
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+NoMediaWidget::NoMediaWidget(QWidget *parent)
+    : QWidget(parent),
+      iconLabel(NULL),
+      textLabel(NULL)
+{
+    hbLayout = new QHBoxLayout(this);
+
+    QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+    iconLabel = new QLabel(this);
+    iconLabel->setSizePolicy(sizePolicy);
+    iconLabel->setMinimumSize(QSize(48, 48));
+    iconLabel->setMaximumSize(QSize(48, 48));
+    iconLabel->setPixmap(yaudIcon("media-playback-stop").pixmap(48, 48));
+
+    hbLayout->addWidget(iconLabel);
+
+    textLabel = new QLabel(tr("No media available"), this);
+    QFont font;
+    font.setBold(true);
+    font.setItalic(true);
+    font.setWeight(75);
+    textLabel->setFont(font);
+
+    hbLayout->addWidget(textLabel);
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+NoMediaWidget::~NoMediaWidget()
+{
+    delete iconLabel;
+    delete textLabel;
+    delete hbLayout;
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 YaudTrayApp::YaudTrayApp(int &argc, char **argv)
     : QApplication(argc, argv),
       trayIcon(NULL),
-      mountMenu(NULL),
+      mountWidget(NULL),
+      mountLayout(NULL),
       aboutMenu(NULL),
       aboutAction(NULL),
       exitAction(NULL)
@@ -39,16 +77,16 @@ YaudTrayApp::~YaudTrayApp()
     std::map<QString, YaudDeviceInfo*>::iterator it;
     for (it = devices.begin(); it != devices.end(); ++it)
     {
-        printf("[YaudTrayApp::~YaudTrayApp] Delete %s\n", qPrintable(it->second->displayName));
-        mountMenu->removeAction(it->second->menuAction);
+        mountLayout->removeWidget(it->second->menuWidget);
         delete it->second->menuWidget;
-        delete it->second->menuAction;
         delete it->second;
     }
     devices.clear();
 
-    delete noMediaAction;
-    delete mountMenu;
+    mountLayout->removeWidget(noMediaWidget);
+    delete noMediaWidget;
+    delete mountLayout;
+    delete mountWidget;
 
     delete aboutAction;
     delete exitAction;
@@ -60,8 +98,6 @@ YaudTrayApp::~YaudTrayApp()
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::createTrayIcon()
 {
-    // QIcon::setThemeName("Faenza-Dark");
-
     printf("themeName: %s\n", qPrintable(QIcon::themeName()));
     QStringList tsPaths = QIcon::themeSearchPaths();
     for (int i=0; i<tsPaths.size(); ++i)
@@ -70,17 +106,20 @@ void YaudTrayApp::createTrayIcon()
     setWindowIcon(yaudIcon("media-eject"));
     setQuitOnLastWindowClosed(false);
 
-    mountMenu = new QMenu(tr("Yaud tray"));
-    noMediaAction = mountMenu->addAction(yaudIcon("media-playback-stop"), tr("No media available"));
+    mountWidget = new QWidget(NULL, Qt::Popup);
+    mountLayout = new QVBoxLayout(mountWidget);
+    noMediaWidget = new NoMediaWidget(mountWidget);
+    noMediaWidget->show();
+    mountLayout->addWidget(noMediaWidget);
 
     aboutMenu = new QMenu(tr("Yaud tray"));
     aboutAction = aboutMenu->addAction(yaudIcon("help-about"), tr("&About"), this, SLOT(onAbout()));
     exitAction = aboutMenu->addAction(yaudIcon("application-exit"), tr("&Quit"), this, SLOT(quit()));
 
     trayIcon = new QSystemTrayIcon(yaudIcon("media-eject"));
-    // trayIcon->setContextMenu(aboutMenu);
+    trayIcon->setContextMenu(aboutMenu);
 
-    connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(showTrayMenu(QSystemTrayIcon::ActivationReason)));
+    connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(toggleTrayMenu(QSystemTrayIcon::ActivationReason)));
 
     trayIcon->show();
 }
@@ -166,8 +205,6 @@ bool YaudTrayApp::getDevicesList()
         return false;
     }
 
-    // qDebug() << enumRes;
-
     std::vector<QDBusObjectPath> sortVector;
 
     enumArg.beginArray();
@@ -199,27 +236,23 @@ void YaudTrayApp::addDevice(QDBusObjectPath device, bool onStart)
     printf("[YaudTrayApp::onDeviceAdded]\n");
     yaudDI->print();
 
-    //DevInfoWidget *widg = new DevInfoWidget(yaudDI);
-    DevInfoWidget *widg = new DevInfoWidget(yaudDI, mountMenu);
+    DevInfoWidget *widg = new DevInfoWidget(yaudDI, mountWidget);
     connect(widg, SIGNAL(requestProcessing(QString)), this, SLOT(processingRequested(QString)));
     connect(widg, SIGNAL(requestCloseError(QString)), this, SLOT(errCloseRequested(QString)));
 
-    QWidgetAction *widgAct = new QWidgetAction(mountMenu);
-    widgAct->setDefaultWidget(widg);
-    //widg->show();
+    widg->show();
 
-    yaudDI->menuAction = widgAct;
     yaudDI->menuWidget = widg;
     devices[yaudDI->udisksPath] = yaudDI;
 
     connect(yaudDI, SIGNAL(commandDone(QString)), this, SLOT(deviceCommandDone(QString)));
     connect(yaudDI, SIGNAL(commandError(QString)), this, SLOT(deviceCommandError(QString)));
 
-    noMediaAction->setVisible(false);
-    mountMenu->insertAction(mountMenu->actions().at(0), widgAct);
+    noMediaWidget->hide();
+    mountLayout->insertWidget(0, widg);
 
     if (!onStart)
-        showTrayMenu(QSystemTrayIcon::Trigger);
+        showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -237,17 +270,16 @@ void YaudTrayApp::onDeviceRemoved(QDBusObjectPath device)
 
     printf("[YaudTrayApp::onDeviceRemoved] : %s\n", qPrintable(device.path()));
 
-    mountMenu->removeAction(it->second->menuAction);
+    mountLayout->removeWidget(it->second->menuWidget);
     delete it->second->menuWidget;
-    delete it->second->menuAction;
     delete it->second;
     devices.erase(it);
 
     if (devices.empty())
-        noMediaAction->setVisible(true);
+        noMediaWidget->show();
 
-    if (!mountMenu->isHidden())
-        showTrayMenu(QSystemTrayIcon::Trigger);
+    if (!mountWidget->isHidden())
+        showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -272,8 +304,8 @@ void YaudTrayApp::onDeviceChanged(QDBusObjectPath device)
 
     it->second->refreshWidget();
 
-    if (!mountMenu->isHidden())
-        showTrayMenu(QSystemTrayIcon::Trigger);
+    if (!mountWidget->isHidden())
+        showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -286,34 +318,24 @@ void YaudTrayApp::onAbout()
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
-void YaudTrayApp::showTrayMenu(QSystemTrayIcon::ActivationReason reason)
+void YaudTrayApp::showTrayMenu()
 {
-    switch(reason)
-    {
-    case QSystemTrayIcon::Context :
-    {
-        QPoint p(trayIcon->geometry().topLeft().x() - (aboutMenu->sizeHint().width()/2), trayIcon->geometry().topLeft().y() - aboutMenu->sizeHint().height());
-        aboutMenu->popup(p);
-    }
-    break;
+    mountWidget->adjustSize();
+    QPoint p(trayIcon->geometry().topLeft().x() - (mountWidget->width()/2), trayIcon->geometry().topLeft().y() - mountWidget->height());
+    mountWidget->move(p);
+    mountWidget->show();
+}
 
-    default :
-    {
-        if (!mountMenu->isEmpty())
-        {
-            mountMenu->resize(1, 1); // Hack to adjust menu size forcely
-            // mountMenu->adjustSize();
-            QPoint p(trayIcon->geometry().topLeft().x() - (mountMenu->sizeHint().width()/2), trayIcon->geometry().topLeft().y() - mountMenu->sizeHint().height());
-            mountMenu->popup(p);
-        }
-        else
-        {
-            mountMenu->hide();
-        }
-    }
-    break;
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudTrayApp::toggleTrayMenu(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::Context)
+        return;
 
-    }
+    if (mountWidget->isHidden())
+        showTrayMenu();
+    else
+        mountWidget->hide();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -326,43 +348,37 @@ void YaudTrayApp::processingRequested(QString udisksPath)
     if (it->second->isMounted)
     {
         if (!it->second->unmount())
-        {
             fprintf(stderr, "ERROR: Can't send umount command to dbus!\n");
-            return;
-        }
-
-        if (!it->second->isEjectable)
-            return;
-
-        if (!it->second->eject())
-        {
-            fprintf(stderr, "ERROR: Can't send eject command to dbus!\n");
-            return;
-        }
     }
     else
     {
         if (!it->second->mount())
-        {
             fprintf(stderr, "ERROR: Can't send mount command to dbus!\n");
-            return;
-        }
     }
-
-    printf("Command sent OK\n");
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::deviceCommandDone(QString udisksPath)
 {
-    if (!mountMenu->isHidden())
-        showTrayMenu(QSystemTrayIcon::Trigger);
+    std::map<QString, YaudDeviceInfo*>::iterator it = devices.find(udisksPath);
+    if (it == devices.end())
+        return;
+
+    // Eject CD after unmount
+    if (it->second->isEjectable && !it->second->isMounted)
+    {
+        if (!it->second->eject())
+            fprintf(stderr, "ERROR: Can't send eject command to dbus!\n");
+    }
+
+    if (!mountWidget->isHidden())
+        showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::deviceCommandError(QString udisksPath)
 {
-    showTrayMenu(QSystemTrayIcon::Trigger);
+    showTrayMenu();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -376,6 +392,6 @@ void YaudTrayApp::errCloseRequested(QString udisksPath)
     it->second->lastErrDescription.clear();
 
     it->second->refreshWidget();
-    if (!mountMenu->isHidden())
-        showTrayMenu(QSystemTrayIcon::Trigger);
+    if (!mountWidget->isHidden())
+        showTrayMenu();
 }

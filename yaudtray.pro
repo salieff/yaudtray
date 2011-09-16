@@ -3,7 +3,8 @@ QT        += core gui
 TARGET     = yaudtray
 TEMPLATE   = app
 
-CONFIG    += debug qdbus
+#CONFIG    += debug qdbus
+CONFIG    += release qdbus
 
 SOURCES += \
     src/main.cpp \

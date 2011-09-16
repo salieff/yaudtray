@@ -5,11 +5,26 @@
 #include <QDBusConnection>
 #include <QDBusObjectPath>
 #include <QSystemTrayIcon>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QMenu>
+#include <QLabel>
+#include <QWidget>
 
 #include <map>
 
 #include "devinfo.h"
+
+class NoMediaWidget : public QWidget {
+public :
+    NoMediaWidget(QWidget *parent = 0);
+    virtual ~NoMediaWidget();
+
+private :
+    QLabel *iconLabel;
+    QLabel *textLabel;
+    QHBoxLayout *hbLayout;
+};
 
 class YaudTrayApp : public QApplication
 {
@@ -24,7 +39,7 @@ private slots:
     void onDeviceRemoved(QDBusObjectPath device);
     void onDeviceChanged(QDBusObjectPath device);
     void onAbout();
-    void showTrayMenu(QSystemTrayIcon::ActivationReason reason);
+    void toggleTrayMenu(QSystemTrayIcon::ActivationReason reason);
     void processingRequested(QString udisksPath);
     void deviceCommandDone(QString udisksPath);
     void deviceCommandError(QString udisksPath);
@@ -34,18 +49,21 @@ private:
     void createTrayIcon();
     bool connectToUdisks();
     bool getDevicesList();
+    void showTrayMenu();
 
     void addDevice(QDBusObjectPath device, bool onStart=false);
 
     std::map<QString, YaudDeviceInfo*> devices;
 
     QSystemTrayIcon *trayIcon;
-    QMenu *mountMenu;
+    QWidget *mountWidget;
+    QVBoxLayout *mountLayout;
+
     QMenu *aboutMenu;
 
     QAction *aboutAction;
     QAction *exitAction;
-    QAction *noMediaAction;
+    NoMediaWidget *noMediaWidget;
 };
 
 #endif /* _YAUD_TRAY_APP_H_ */

@@ -25,6 +25,8 @@ DevInfoWidget::DevInfoWidget(YaudDeviceInfo *yaudDI, QWidget *parent)
     errCloseButton->setIcon(yaudIcon("window-close"));
     errCloseButton->setText("");
     errGroupBox->hide();
+
+    connect(mountPathLabel, SIGNAL(linkActivated(QString)), this, SLOT(mountLinkActivated(QString)));
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -77,13 +79,11 @@ void DevInfoWidget::convertFrom(YaudDeviceInfo *yaudDI)
 
         QString mountUrl = "<A HREF=\"" + yaudDI->mountPath + "\">" + displayPath + "</A>";
         mountPathLabel->setText(mountUrl);
-        connect(mountPathLabel, SIGNAL(linkActivated(QString)), this, SLOT(mountLinkActivated(QString)));
     }
     else
     {
         ejectButton->setIcon(yaudIcon("system-run"));
         mountPathLabel->setText(tr("Not mounted"));
-        disconnect(mountPathLabel, SIGNAL(linkActivated(QString)), NULL, NULL);
     }
 
     if (yaudDI->lastError.isEmpty())
@@ -95,14 +95,12 @@ void DevInfoWidget::convertFrom(YaudDeviceInfo *yaudDI)
         errNameLabel->setText(yaudDI->lastError);
         errTextLabel->setText(yaudDI->lastErrDescription);
         errGroupBox->show();
+        errGroupBox->updateGeometry();
     }
 
     udisksPath = yaudDI->udisksPath;
 
-    errNameLabel->adjustSize();
-    errTextLabel->adjustSize();
-    errGroupBox->adjustSize();
-    adjustSize();
+    updateGeometry();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
