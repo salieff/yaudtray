@@ -60,7 +60,8 @@ YaudTrayApp::YaudTrayApp(int &argc, char **argv)
       mountLayout(NULL),
       aboutMenu(NULL),
       aboutAction(NULL),
-      exitAction(NULL)
+      exitAction(NULL),
+      noMediaWidget(NULL)
 {
     createTrayIcon();
 
