@@ -36,6 +36,17 @@ YaudTrayApp::YaudTrayApp(int &argc, char **argv)
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 YaudTrayApp::~YaudTrayApp()
 {
+    std::map<QString, YaudDeviceInfo*>::iterator it;
+    for (it = devices.begin(); it != devices.end(); ++it)
+    {
+        printf("[YaudTrayApp::~YaudTrayApp] Delete %s\n", qPrintable(it->second->displayName));
+        mountMenu->removeAction(it->second->menuAction);
+        delete it->second->menuWidget;
+        delete it->second->menuAction;
+        delete it->second;
+    }
+    devices.clear();
+
     delete noMediaAction;
     delete mountMenu;
 
@@ -178,24 +189,31 @@ bool YaudTrayApp::getDevicesList()
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::addDevice(QDBusObjectPath device, bool onStart)
 {
-    YaudDeviceInfo yaudDI;
-    yaudDI.convert(device);
-    if (!yaudDI.isExternalMountPoint)
+    YaudDeviceInfo *yaudDI = new YaudDeviceInfo(device);
+    if (!yaudDI->isExternalMountPoint)
+    {
+        delete yaudDI;
         return;
+    }
 
     printf("[YaudTrayApp::onDeviceAdded]\n");
-    yaudDI.print();
+    yaudDI->print();
 
-    DevInfoWidget *widg = new DevInfoWidget(&yaudDI, mountMenu);
+    //DevInfoWidget *widg = new DevInfoWidget(yaudDI);
+    DevInfoWidget *widg = new DevInfoWidget(yaudDI, mountMenu);
     connect(widg, SIGNAL(requestProcessing(QString)), this, SLOT(processingRequested(QString)));
     connect(widg, SIGNAL(requestCloseError(QString)), this, SLOT(errCloseRequested(QString)));
 
     QWidgetAction *widgAct = new QWidgetAction(mountMenu);
     widgAct->setDefaultWidget(widg);
+    //widg->show();
 
-    yaudDI.menuAction = widgAct;
-    yaudDI.menuWidget = widg;
-    devices[yaudDI.udisksPath] = yaudDI;
+    yaudDI->menuAction = widgAct;
+    yaudDI->menuWidget = widg;
+    devices[yaudDI->udisksPath] = yaudDI;
+
+    connect(yaudDI, SIGNAL(commandDone(QString)), this, SLOT(deviceCommandDone(QString)));
+    connect(yaudDI, SIGNAL(commandError(QString)), this, SLOT(deviceCommandError(QString)));
 
     noMediaAction->setVisible(false);
     mountMenu->insertAction(mountMenu->actions().at(0), widgAct);
@@ -213,15 +231,16 @@ void YaudTrayApp::onDeviceAdded(QDBusObjectPath device)
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::onDeviceRemoved(QDBusObjectPath device)
 {
-    std::map<QString, YaudDeviceInfo>::iterator it = devices.find(device.path());
+    std::map<QString, YaudDeviceInfo*>::iterator it = devices.find(device.path());
     if (it == devices.end())
         return;
 
     printf("[YaudTrayApp::onDeviceRemoved] : %s\n", qPrintable(device.path()));
 
-    mountMenu->removeAction(it->second.menuAction);
-    delete it->second.menuWidget;
-    delete it->second.menuAction;
+    mountMenu->removeAction(it->second->menuAction);
+    delete it->second->menuWidget;
+    delete it->second->menuAction;
+    delete it->second;
     devices.erase(it);
 
     if (devices.empty())
@@ -234,30 +253,24 @@ void YaudTrayApp::onDeviceRemoved(QDBusObjectPath device)
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::onDeviceChanged(QDBusObjectPath device)
 {
-    YaudDeviceInfo yaudDI;
-    yaudDI.convert(device);
-
-    if (!yaudDI.isExternalMountPoint)
-    {
-        onDeviceRemoved(device);
-        return;
-    }
-
-    std::map<QString, YaudDeviceInfo>::iterator it = devices.find(yaudDI.udisksPath);
+    std::map<QString, YaudDeviceInfo*>::iterator it = devices.find(device.path());
     if (it == devices.end())
     {
         onDeviceAdded(device);
         return;
     }
 
-    if (it->second == yaudDI)
+    it->second->convert(device);
+    if (!it->second->isExternalMountPoint)
+    {
+        onDeviceRemoved(device);
         return;
+    }
 
     printf("[YaudTrayApp::onDeviceChanged]\n");
-    yaudDI.print();
+    it->second->print();
 
-    it->second.convert(device);
-    it->second.refreshWidget();
+    it->second->refreshWidget();
 
     if (!mountMenu->isHidden())
         showTrayMenu(QSystemTrayIcon::Trigger);
@@ -306,42 +319,63 @@ void YaudTrayApp::showTrayMenu(QSystemTrayIcon::ActivationReason reason)
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::processingRequested(QString udisksPath)
 {
-    std::map<QString, YaudDeviceInfo>::iterator it = devices.find(udisksPath);
+    std::map<QString, YaudDeviceInfo*>::iterator it = devices.find(udisksPath);
     if (it == devices.end())
         return;
 
-    bool ret = true;
-
-    if (it->second.isMounted)
+    if (it->second->isMounted)
     {
-        ret = it->second.unmount();
-        if (it->second.isEjectable)
-            if (ret) ret = it->second.eject();
+        if (!it->second->unmount())
+        {
+            fprintf(stderr, "ERROR: Can't send umount command to dbus!\n");
+            return;
+        }
+
+        if (!it->second->isEjectable)
+            return;
+
+        if (!it->second->eject())
+        {
+            fprintf(stderr, "ERROR: Can't send eject command to dbus!\n");
+            return;
+        }
     }
     else
     {
-        ret = it->second.mount();
+        if (!it->second->mount())
+        {
+            fprintf(stderr, "ERROR: Can't send mount command to dbus!\n");
+            return;
+        }
     }
 
-    if (!ret)
-    {
-        it->second.refreshWidget();
-        if (!mountMenu->isHidden())
-            showTrayMenu(QSystemTrayIcon::Trigger);
-    }
+    printf("Command sent OK\n");
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudTrayApp::deviceCommandDone(QString udisksPath)
+{
+    if (!mountMenu->isHidden())
+        showTrayMenu(QSystemTrayIcon::Trigger);
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudTrayApp::deviceCommandError(QString udisksPath)
+{
+    showTrayMenu(QSystemTrayIcon::Trigger);
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudTrayApp::errCloseRequested(QString udisksPath)
 {
-    std::map<QString, YaudDeviceInfo>::iterator it = devices.find(udisksPath);
+    std::map<QString, YaudDeviceInfo*>::iterator it = devices.find(udisksPath);
     if (it == devices.end())
         return;
 
-    it->second.lastError.clear();
-    it->second.lastErrDescription.clear();
+    it->second->lastError.clear();
+    it->second->lastErrDescription.clear();
 
-    it->second.refreshWidget();
+    it->second->refreshWidget();
     if (!mountMenu->isHidden())
         showTrayMenu(QSystemTrayIcon::Trigger);
 }

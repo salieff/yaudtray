@@ -26,6 +26,8 @@ private slots:
     void onAbout();
     void showTrayMenu(QSystemTrayIcon::ActivationReason reason);
     void processingRequested(QString udisksPath);
+    void deviceCommandDone(QString udisksPath);
+    void deviceCommandError(QString udisksPath);
     void errCloseRequested(QString udisksPath);
 
 private:
@@ -35,7 +37,7 @@ private:
 
     void addDevice(QDBusObjectPath device, bool onStart=false);
 
-    std::map<QString, YaudDeviceInfo> devices;
+    std::map<QString, YaudDeviceInfo*> devices;
 
     QSystemTrayIcon *trayIcon;
     QMenu *mountMenu;

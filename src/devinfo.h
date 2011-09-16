@@ -1,13 +1,21 @@
 #ifndef _YAUD_DEV_INFO_H_
 #define _YAUD_DEV_INFO_H_
 
+#include <QObject>
 #include <QString>
 #include <QDBusObjectPath>
+#include <QDBusMessage>
+#include <QDBusError>
 #include <QWidgetAction>
 
 class DevInfoWidget;
 
-struct YaudDeviceInfo {
+class YaudDeviceInfo : public QObject
+{
+
+    Q_OBJECT
+
+public :
     enum DriveType {
         DRT_UNKNOWN,
         DRT_FLASH,
@@ -15,6 +23,7 @@ struct YaudDeviceInfo {
     };
 
     YaudDeviceInfo();
+    YaudDeviceInfo(QDBusObjectPath device);
 
     void convert(QDBusObjectPath device);
     void refreshWidget();
@@ -44,6 +53,17 @@ struct YaudDeviceInfo {
 
     QWidgetAction *menuAction;
     DevInfoWidget *menuWidget;
+
+signals :
+    void commandError(QString udisksPath);
+    void commandDone(QString udisksPath);
+
+private slots :
+    void onCommandDone(QDBusMessage msg);
+    void onCommandError(QDBusError err, QDBusMessage msg);
+
+private :
+    void reset();
 };
 
 #endif /* _YAUD_DEV_INFO_H_ */

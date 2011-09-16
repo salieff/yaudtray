@@ -7,20 +7,45 @@
 #include <stdio.h>
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudDeviceInfo::reset()
+{
+    udisksPath.clear();
+    displayName.clear();
+
+    isExternalMountPoint = false;
+    isMounted = false;
+    isEjectable = false;
+
+    size = 0;
+    fsName.clear();
+    mountPath.clear();
+
+    driveType = DRT_UNKNOWN;
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 YaudDeviceInfo::YaudDeviceInfo()
-    : isExternalMountPoint(false),
-      isMounted(false),
-      isEjectable(false),
-      size(0),
-      driveType(DRT_UNKNOWN),
+    : QObject(),
       menuAction(NULL),
       menuWidget(NULL)
 {
+    reset();
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+YaudDeviceInfo::YaudDeviceInfo(QDBusObjectPath device)
+    : QObject(),
+      menuAction(NULL),
+      menuWidget(NULL)
+{
+    convert(device);
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
 void YaudDeviceInfo::convert(QDBusObjectPath device)
 {
+    reset();
+
     QDBusInterface devIface("org.freedesktop.UDisks",
                             device.path(),
                             "org.freedesktop.UDisks.Device",
@@ -111,19 +136,10 @@ bool YaudDeviceInfo::mount()
                             "org.freedesktop.UDisks.Device",
                             QDBusConnection::systemBus());
 
-    QDBusMessage mountRes = devIface.call("FilesystemMount", QVariant(QString()), QVariant(QStringList()));
-    if (mountRes.type() == QDBusMessage::ErrorMessage)
-    {
-        lastError = mountRes.errorName();
-        lastErrDescription = mountRes.errorMessage();
-        fprintf(stderr, "ERROR: Can't call FilesystemMount\n");
-        fprintf(stderr, "       %s : %s\n", qPrintable(lastError), qPrintable(lastErrDescription));
-        return false;
-    }
+    QList<QVariant> args;
+    args << QVariant(QString()) << QVariant(QStringList());
 
-    lastError.clear();
-    lastErrDescription.clear();
-    return true;
+    return devIface.callWithCallback("FilesystemMount", args, this, SLOT(onCommandDone(QDBusMessage)), SLOT(onCommandError(QDBusError, QDBusMessage)));
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -134,19 +150,10 @@ bool YaudDeviceInfo::unmount()
                             "org.freedesktop.UDisks.Device",
                             QDBusConnection::systemBus());
 
-    QDBusMessage unmountRes = devIface.call("FilesystemUnmount", QVariant(QStringList()));
-    if (unmountRes.type() == QDBusMessage::ErrorMessage)
-    {
-        lastError = unmountRes.errorName();
-        lastErrDescription = unmountRes.errorMessage();
-        fprintf(stderr, "ERROR: Can't call FilesystemUnmount\n");
-        fprintf(stderr, "       %s : %s\n", qPrintable(lastError), qPrintable(lastErrDescription));
-        return false;
-    }
+    QList<QVariant> args;
+    args << QVariant(QStringList());
 
-    lastError.clear();
-    lastErrDescription.clear();
-    return true;
+    return devIface.callWithCallback("FilesystemUnmount", args, this, SLOT(onCommandDone(QDBusMessage)), SLOT(onCommandError(QDBusError, QDBusMessage)));
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
@@ -157,19 +164,31 @@ bool YaudDeviceInfo::eject()
                             "org.freedesktop.UDisks.Device",
                             QDBusConnection::systemBus());
 
-    QDBusMessage ejectRes = devIface.call("DriveEject", QVariant(QStringList()));
-    if (ejectRes.type() == QDBusMessage::ErrorMessage)
-    {
-        lastError = ejectRes.errorName();
-        lastErrDescription = ejectRes.errorMessage();
-        fprintf(stderr, "ERROR: Can't call DriveEject\n");
-        fprintf(stderr, "       %s : %s\n", qPrintable(lastError), qPrintable(lastErrDescription));
-        return false;
-    }
+    QList<QVariant> args;
+    args << QVariant(QStringList());
 
+    return devIface.callWithCallback("DriveEject", args, this, SLOT(onCommandDone(QDBusMessage)), SLOT(onCommandError(QDBusError, QDBusMessage)));
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudDeviceInfo::onCommandDone(QDBusMessage msg)
+{
+    printf("[YaudDeviceInfo::onCommandDone]\n");
     lastError.clear();
     lastErrDescription.clear();
-    return true;
+    refreshWidget();
+    emit commandDone(udisksPath);
+}
+
+// --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
+void YaudDeviceInfo::onCommandError(QDBusError err, QDBusMessage msg)
+{
+    printf("[YaudDeviceInfo::onCommandError]\n");
+    lastError = err.name();
+    lastErrDescription = err.message();
+    fprintf(stderr, "[ERROR] %s : %s [%d]\n", qPrintable(lastError), qPrintable(lastErrDescription), err.type());
+    refreshWidget();
+    emit commandError(udisksPath);
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------

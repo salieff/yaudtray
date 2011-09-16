@@ -98,6 +98,11 @@ void DevInfoWidget::convertFrom(YaudDeviceInfo *yaudDI)
     }
 
     udisksPath = yaudDI->udisksPath;
+
+    errNameLabel->adjustSize();
+    errTextLabel->adjustSize();
+    errGroupBox->adjustSize();
+    adjustSize();
 }
 
 // --------========++++++++ooooooooOOOOOOOOoooooooo++++++++========--------
