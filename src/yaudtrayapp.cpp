@@ -222,11 +222,13 @@ bool YaudTrayApp::getDevicesList()
     }
 
     const QDBusArgument enumArg = enumRes.arguments().at(0).value<QDBusArgument>();
+#if QT_VERSION >= 0x040500
     if (enumArg.currentType() != QDBusArgument::ArrayType)
     {
         fprintf(stderr, "ERROR: Unexpected argument type of EnumerateDevices call\n");
         return false;
     }
+#endif
 
     std::vector<QDBusObjectPath> sortVector;
 
